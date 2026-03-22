@@ -4,69 +4,77 @@ interface Props {
   result: EvaluationResult;
 }
 
-function scoreColor(score: number): string {
-  if (score >= 80) return "text-green-400";
-  if (score >= 50) return "text-yellow-400";
-  return "text-red-400";
-}
-
-function scoreBarColor(score: number): string {
-  if (score >= 80) return "bg-green-500";
-  if (score >= 50) return "bg-yellow-500";
-  return "bg-red-500";
+function barColor(score: number): string {
+  if (score >= 80) return "#00ff41";
+  if (score >= 50) return "#fbbf24";
+  return "#ff4444";
 }
 
 export function ScoreCard({ result }: Props) {
   const { testCase, response, judgment } = result;
+  const score = judgment.overallScore;
 
   return (
-    <div className="bg-gray-900 border border-gray-700 rounded-lg p-4 flex flex-col gap-4">
-      {/* Header: test case input + overall score */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Test Case</span>
-          <p className="text-sm text-gray-200">{testCase}</p>
-        </div>
-        <div className="shrink-0 flex flex-col items-center">
-          <span className={`text-3xl font-bold ${scoreColor(judgment.overallScore)}`}>
-            {judgment.overallScore}
-          </span>
-          <span className="text-xs text-gray-500">/100</span>
+    <div
+      className="flex flex-col gap-4 p-5"
+      style={{ background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: "4px" }}
+    >
+      {/* Test case label */}
+      <div className="flex items-center gap-2 text-xs" style={{ color: "#7a7a7a" }}>
+        <span>→</span>
+        <span className="truncate" style={{ color: "#00ff41" }}>{testCase}</span>
+      </div>
+
+      {/* Overall score row */}
+      <div className="flex items-baseline justify-between">
+        <span className="text-sm" style={{ color: "#00ff41" }}>overall_score</span>
+        <div className="flex items-baseline gap-1">
+          <span className="text-4xl font-bold" style={{ color: barColor(score) }}>{score}</span>
+          <span className="text-sm" style={{ color: "#7a7a7a" }}>/100</span>
         </div>
       </div>
 
       {/* Score bar */}
-      <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
+      <div className="h-1.5 rounded-full" style={{ background: "#2a2a2a" }}>
         <div
-          className={`h-full rounded-full transition-all ${scoreBarColor(judgment.overallScore)}`}
-          style={{ width: `${judgment.overallScore}%` }}
+          className="h-full rounded-full transition-all duration-500"
+          style={{ width: `${score}%`, background: barColor(score) }}
         />
       </div>
 
-      {/* Per-criterion results */}
-      <div className="flex flex-col gap-2">
+      {/* Criteria rows */}
+      <div className="flex flex-col" style={{ borderTop: "1px solid #2a2a2a" }}>
         {judgment.results.map((r, i) => (
-          <div key={i} className="flex items-start gap-3 text-sm">
-            <span className={`mt-0.5 shrink-0 ${r.pass ? "text-green-400" : "text-red-400"}`}>
-              {r.pass ? "✓" : "✗"}
-            </span>
-            <div className="flex flex-col gap-0.5">
-              <span className="text-gray-300 font-medium">{r.criterion}</span>
-              <span className="text-gray-500 text-xs">{r.reasoning}</span>
+          <div
+            key={i}
+            className="flex items-center justify-between py-3 text-sm gap-4"
+            style={{ borderBottom: "1px solid #1e1e1e" }}
+          >
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <span style={{ color: "#00ff41" }}>{r.criterion}</span>
+              <span className="text-xs truncate" style={{ color: "#6b6b6b" }}>{r.reasoning}</span>
             </div>
-            <span className="ml-auto shrink-0 text-xs text-gray-500">{r.score}/5</span>
+            <span
+              className="shrink-0 font-bold tracking-widest text-xs"
+              style={{ color: r.pass ? "#00ff41" : "#ff4444" }}
+            >
+              {r.pass ? "✓ PASS" : "✗ FAIL"}
+            </span>
           </div>
         ))}
       </div>
 
       {/* Response preview */}
-      <details className="group">
-        <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-300 transition-colors select-none">
-          View response
+      <details>
+        <summary className="text-xs cursor-pointer hover:opacity-70 transition-opacity" style={{ color: "#6b6b6b" }}>
+          view response
         </summary>
-        <p className="mt-2 text-xs text-gray-400 bg-gray-800 rounded p-3 whitespace-pre-wrap font-mono">
+        <pre
+          className="mt-3 p-3 text-xs whitespace-pre-wrap"
+          style={{ background: "#111", color: "#00cc33", borderRadius: "4px" }}
+        >
           {response}
-        </p>
+        </pre>
       </details>
     </div>
   );

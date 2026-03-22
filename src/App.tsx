@@ -3,6 +3,7 @@ import { nanoid } from "nanoid";
 import type { TestCase, Criterion, EvaluationResult, EvaluationStatus } from "./types";
 import { runEvaluation, autoImprovePrompt } from "./services/claude";
 import { PromptSetup } from "./components/PromptSetup";
+import { TestCaseList } from "./components/TestCaseList";
 import { CriteriaBuilder } from "./components/CriteriaBuilder";
 import { ResultsDashboard } from "./components/ResultsDashboard";
 import { CommandPalette } from "./components/CommandPalette";
@@ -15,35 +16,26 @@ export default function App() {
   const [status, setStatus] = useState<EvaluationStatus>("idle");
   const [improvedPrompt, setImprovedPrompt] = useState<string | null>(null);
 
-  // --- Test case handlers ---
   function handleAddTestCase() {
     setTestCases((prev) => [...prev, { id: nanoid(), input: "" }]);
   }
-
   function handleUpdateTestCase(id: string, input: string) {
     setTestCases((prev) => prev.map((tc) => (tc.id === id ? { ...tc, input } : tc)));
   }
-
   function handleRemoveTestCase(id: string) {
     setTestCases((prev) => prev.filter((tc) => tc.id !== id));
   }
 
-  // --- Criteria handlers ---
   function handleAddCriterion() {
     setCriteria((prev) => [...prev, { id: nanoid(), text: "", weight: 3 }]);
   }
-
   function handleUpdateCriterion(id: string, field: "text" | "weight", value: string | number) {
-    setCriteria((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, [field]: value } : c))
-    );
+    setCriteria((prev) => prev.map((c) => (c.id === id ? { ...c, [field]: value } : c)));
   }
-
   function handleRemoveCriterion(id: string) {
     setCriteria((prev) => prev.filter((c) => c.id !== id));
   }
 
-  // --- Evaluation ---
   async function handleRunEvaluation() {
     if (!systemPrompt.trim() || testCases.length === 0 || criteria.length === 0) return;
     setStatus("loading");
@@ -58,7 +50,6 @@ export default function App() {
     }
   }
 
-  // --- Auto-improve ---
   async function handleAutoImprove() {
     if (results.length === 0) return;
     setStatus("loading");
@@ -80,8 +71,12 @@ export default function App() {
 
   const canImprove = status !== "loading" && results.length > 0;
 
+  function openCommandPalette() {
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true }));
+  }
+
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
+    <div className="min-h-screen flex flex-col" style={{ color: "#00ff41" }}>
       <CommandPalette
         onRunEvaluation={handleRunEvaluation}
         onAddTestCase={handleAddTestCase}
@@ -91,61 +86,91 @@ export default function App() {
         canImprove={canImprove}
       />
 
-      <div className="max-w-5xl mx-auto px-6 py-10 flex flex-col gap-10">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Prompt Evaluation Studio</h1>
-            <p className="text-sm text-gray-500 mt-1">Unit tests for your prompts</p>
-          </div>
-          <kbd className="hidden sm:flex items-center gap-1 px-2 py-1 text-xs text-gray-500 border border-gray-700 rounded-md">
-            <span>⌘</span><span>K</span>
-          </kbd>
-        </div>
+      {/* Title bar */}
+      <div className="flex items-center justify-end px-6 pt-5 pb-4">
+        <span className="text-xs tracking-[0.2em]" style={{ color: "#6b6b6b" }}>
+          PROMPT-EVAL-STUDIO V1.0
+        </span>
+      </div>
 
-        {/* Step 1 + 2 side by side */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <section className="flex flex-col gap-3">
-            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
-              Step 1 — Prompt &amp; Test Cases
-            </h2>
+      {/* Main content */}
+      <div className="flex-1 px-6 pb-28 flex flex-col gap-8">
+
+        {/* Row 1: System Prompt + Test Cases */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="flex flex-col gap-3">
+            <p className="text-xs tracking-[0.2em]" style={{ color: "#6b6b6b" }}>SYSTEM PROMPT</p>
             <PromptSetup
               systemPrompt={systemPrompt}
               onSystemPromptChange={setSystemPrompt}
+            />
+          </div>
+          <div className="flex flex-col gap-3">
+            <p className="text-xs tracking-[0.2em]" style={{ color: "#6b6b6b" }}>TEST CASES</p>
+            <TestCaseList
               testCases={testCases}
               onAddTestCase={handleAddTestCase}
               onUpdateTestCase={handleUpdateTestCase}
               onRemoveTestCase={handleRemoveTestCase}
             />
-          </section>
-
-          <section className="flex flex-col gap-3">
-            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
-              Step 2 — Evaluation Criteria
-            </h2>
-            <CriteriaBuilder
-              criteria={criteria}
-              onAddCriterion={handleAddCriterion}
-              onUpdateCriterion={handleUpdateCriterion}
-              onRemoveCriterion={handleRemoveCriterion}
-            />
-          </section>
+          </div>
         </div>
 
-        {/* Step 3 — Results */}
-        <section className="flex flex-col gap-3">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
-            Step 3 — Results
-          </h2>
+        {/* Row 2: Criteria */}
+        <div className="flex flex-col gap-3">
+          <p className="text-xs tracking-[0.2em]" style={{ color: "#6b6b6b" }}>CRITERIA</p>
+          <CriteriaBuilder
+            criteria={criteria}
+            onAddCriterion={handleAddCriterion}
+            onUpdateCriterion={handleUpdateCriterion}
+            onRemoveCriterion={handleRemoveCriterion}
+          />
+        </div>
+
+        {/* Row 3: Results */}
+        <div className="flex flex-col gap-3">
+          <p className="text-xs tracking-[0.2em]" style={{ color: "#6b6b6b" }}>EVALUATION RESULTS</p>
           <ResultsDashboard
             status={status}
             results={results}
-            onRunEvaluation={handleRunEvaluation}
-            onAutoImprove={handleAutoImprove}
             improvedPrompt={improvedPrompt}
             originalPrompt={systemPrompt}
           />
-        </section>
+        </div>
+      </div>
+
+      {/* Bottom bar */}
+      <div
+        className="fixed bottom-0 left-0 right-0 flex items-center justify-between px-6 py-4"
+        style={{ background: "#0a0a0a", borderTop: "1px solid #222" }}
+      >
+        <button
+          onClick={openCommandPalette}
+          className="flex items-center gap-2 text-xs transition-opacity hover:opacity-70"
+          style={{ color: "#6b6b6b" }}
+        >
+          <span className="border px-1.5 py-0.5 rounded text-xs" style={{ borderColor: "#2a2a2a", color: "#6b6b6b" }}>⌘K</span>
+          command palette
+        </button>
+
+        <div className="flex items-center gap-3">
+          {status === "loading" && (
+            <span className="text-xs animate-pulse" style={{ color: "#6b6b6b" }}>running...</span>
+          )}
+          <button
+            onClick={canImprove ? handleAutoImprove : handleRunEvaluation}
+            disabled={status === "loading" || (!canRun && !canImprove)}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold tracking-widest transition-all disabled:opacity-20 disabled:cursor-not-allowed hover:opacity-80"
+            style={{
+              background: "transparent",
+              color: "#00ff41",
+              border: "2px solid #00ff41",
+            }}
+          >
+            <span>✦</span>
+            {canImprove ? "AUTO-IMPROVE" : "RUN EVAL"}
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -10,14 +10,7 @@ interface Props {
   canImprove: boolean;
 }
 
-export function CommandPalette({
-  onRunEvaluation,
-  onAddTestCase,
-  onAddCriterion,
-  onAutoImprove,
-  canRun,
-  canImprove,
-}: Props) {
+export function CommandPalette({ onRunEvaluation, onAddTestCase, onAddCriterion, onAutoImprove, canRun, canImprove }: Props) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -40,57 +33,72 @@ export function CommandPalette({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh] bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]"
+      style={{ background: "rgba(0,0,0,0.8)" }}
       onClick={() => setOpen(false)}
     >
       <div
-        className="w-full max-w-lg bg-gray-900 border border-gray-700 rounded-xl shadow-2xl overflow-hidden"
+        className="w-full max-w-lg overflow-hidden"
+        style={{ background: "#111", border: "1px solid #2a2a2a", borderRadius: "4px" }}
         onClick={(e) => e.stopPropagation()}
       >
         <Command>
           <Command.Input
             autoFocus
-            placeholder="Type a command..."
-            className="w-full bg-transparent px-4 py-3 text-gray-100 text-sm outline-none border-b border-gray-700 placeholder:text-gray-500"
+            placeholder="type a command..."
+            className="w-full bg-transparent px-4 py-3 text-sm outline-none"
+            style={{
+              color: "#00ff41",
+              borderBottom: "1px solid #2a2a2a",
+              caretColor: "#00ff41",
+            }}
           />
           <Command.List className="max-h-64 overflow-y-auto p-2">
-            <Command.Empty className="py-6 text-center text-sm text-gray-500">
-              No commands found.
+            <Command.Empty className="py-6 text-center text-sm" style={{ color: "#6b6b6b" }}>
+              no commands found.
             </Command.Empty>
 
-            <Command.Group heading="Evaluation" className="[&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-gray-500 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wide">
+            <Command.Group
+              heading="eval"
+              className="[&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:tracking-widest"
+              style={{ color: "#6b6b6b" }}
+            >
               <Command.Item
                 onSelect={() => canRun && run(onRunEvaluation)}
                 disabled={!canRun}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-300 cursor-pointer aria-selected:bg-gray-800 aria-disabled:opacity-40 aria-disabled:cursor-not-allowed"
+                className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer rounded aria-selected:bg-[#1a1a1a] aria-disabled:opacity-30 aria-disabled:cursor-not-allowed"
+                style={{ color: "#00ff41" }}
               >
-                <span className="text-violet-400">▶</span>
-                Run Evaluation
+                ▶ run evaluation
               </Command.Item>
               <Command.Item
                 onSelect={() => canImprove && run(onAutoImprove)}
                 disabled={!canImprove}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-300 cursor-pointer aria-selected:bg-gray-800 aria-disabled:opacity-40 aria-disabled:cursor-not-allowed"
+                className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer rounded aria-selected:bg-[#1a1a1a] aria-disabled:opacity-30 aria-disabled:cursor-not-allowed"
+                style={{ color: "#00ff41" }}
               >
-                <span className="text-green-400">✦</span>
-                Auto-Improve Prompt
+                ✦ auto-improve prompt
               </Command.Item>
             </Command.Group>
 
-            <Command.Group heading="Add" className="[&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-gray-500 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wide mt-1">
+            <Command.Group
+              heading="add"
+              className="[&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:tracking-widest mt-1"
+              style={{ color: "#6b6b6b" }}
+            >
               <Command.Item
                 onSelect={() => run(onAddTestCase)}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-300 cursor-pointer aria-selected:bg-gray-800"
+                className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer rounded aria-selected:bg-[#1a1a1a]"
+                style={{ color: "#00ff41" }}
               >
-                <span className="text-blue-400">+</span>
-                Add Test Case
+                + add test case
               </Command.Item>
               <Command.Item
                 onSelect={() => run(onAddCriterion)}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-300 cursor-pointer aria-selected:bg-gray-800"
+                className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer rounded aria-selected:bg-[#1a1a1a]"
+                style={{ color: "#00ff41" }}
               >
-                <span className="text-blue-400">+</span>
-                Add Criterion
+                + add criterion
               </Command.Item>
             </Command.Group>
           </Command.List>

@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { nanoid } from "nanoid";
-import type { TestCase, Criterion, ModelEvaluationResult, EvaluationStatus } from "./types";
+import type {
+  TestCase,
+  Criterion,
+  ModelEvaluationResult,
+  EvaluationStatus,
+  ReferenceFile,
+} from "./types";
 import { runEvaluation, autoImprovePrompt } from "./services/claude";
 import { PromptSetup } from "./components/PromptSetup";
 import { TestCaseList } from "./components/TestCaseList";
@@ -11,6 +17,7 @@ import { ModelSelector, MODELS } from "./components/ModelSelector";
 import { PromptHistory } from "./components/PromptHistory";
 import { usePromptHistory } from "./hooks/usePromptHistory";
 import { CriteriaTemplates } from "./components/CriteriaTemplates";
+import { HelpDialog } from "./components/HelpDialog";
 
 const DEFAULT_MODEL_ID = "claude-sonnet-4-20250514";
 
@@ -24,12 +31,14 @@ export default function App() {
   const [systemPrompt, setSystemPrompt] = useState("");
   const [testCases, setTestCases] = useState<TestCase[]>([]);
   const [criteria, setCriteria] = useState<Criterion[]>([]);
+  const [referenceFiles, setReferenceFiles] = useState<ReferenceFile[]>([]);
   const [selectedModelIds, setSelectedModelIds] = useState<string[]>([DEFAULT_MODEL_ID]);
   const [comparisons, setComparisons] = useState<ModelEvaluationResult[]>([]);
   const [status, setStatus] = useState<EvaluationStatus>("idle");
   const [improvedPrompt, setImprovedPrompt] = useState<string | null>(null);
   const [improveModelId, setImproveModelId] = useState<string>(DEFAULT_MODEL_ID);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const { versions, addVersion, clear } = usePromptHistory();
 
@@ -41,6 +50,22 @@ export default function App() {
   }
   function handleRemoveTestCase(id: string) {
     setTestCases((prev) => prev.filter((tc) => tc.id !== id));
+  }
+
+  function handleAddStarterTestCases() {
+    const starterInputs = [
+      "User asks: How do I reset my password?",
+      "User says: I was charged twice this month.",
+      "User asks: Can I export my data before canceling?",
+    ];
+
+    setTestCases((prev) => {
+      const existing = new Set(prev.map((t) => t.input.trim().toLowerCase()));
+      const toAdd = starterInputs
+        .filter((input) => !existing.has(input.trim().toLowerCase()))
+        .map((input) => ({ id: nanoid(), input }));
+      return [...prev, ...toAdd];
+    });
   }
 
   function handleAddCriterion() {
@@ -55,6 +80,33 @@ export default function App() {
 
   function handleLoadTemplate(newCriteria: Criterion[]) {
     setCriteria(newCriteria);
+  }
+
+  function handleAddReferenceFiles(files: File[]) {
+    if (files.length === 0) return;
+
+    setReferenceFiles((prev) => {
+      const seen = new Set(prev.map((f) => `${f.name}:${f.size}:${f.type}`));
+      const additions: ReferenceFile[] = [];
+
+      files.forEach((file) => {
+        const key = `${file.name}:${file.size}:${file.type}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        additions.push({
+          id: nanoid(),
+          name: file.name,
+          size: file.size,
+          type: file.type,
+        });
+      });
+
+      return [...prev, ...additions];
+    });
+  }
+
+  function handleRemoveReferenceFile(id: string) {
+    setReferenceFiles((prev) => prev.filter((f) => f.id !== id));
   }
 
   async function handleRunEvaluation() {
@@ -133,6 +185,8 @@ export default function App() {
         onClose={() => setHistoryOpen(false)}
       />
 
+      <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
+
       {/* Title bar */}
       <div className="flex items-center justify-between px-6 pt-5 pb-4">
         <button
@@ -151,9 +205,18 @@ export default function App() {
             </span>
           )}
         </button>
-        <span className="text-xs tracking-[0.2em]" style={{ color: "#6b6b6b" }}>
-          PROMPT-EVAL-STUDIO V1.0
-        </span>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setHelpOpen(true)}
+            className="text-xs px-2.5 py-1 rounded transition-opacity hover:opacity-70"
+            style={{ border: "1px solid #2a2a2a", color: "#6b6b6b" }}
+          >
+            help
+          </button>
+          <span className="text-xs tracking-[0.2em]" style={{ color: "#6b6b6b" }}>
+            PROMPT-EVAL-STUDIO V1.0
+          </span>
+        </div>
       </div>
 
       {/* Main content */}
@@ -166,6 +229,9 @@ export default function App() {
             <PromptSetup
               systemPrompt={systemPrompt}
               onSystemPromptChange={setSystemPrompt}
+              referenceFiles={referenceFiles}
+              onAddReferenceFiles={handleAddReferenceFiles}
+              onRemoveReferenceFile={handleRemoveReferenceFile}
             />
           </div>
           <div className="flex flex-col gap-3">
@@ -173,6 +239,7 @@ export default function App() {
             <TestCaseList
               testCases={testCases}
               onAddTestCase={handleAddTestCase}
+              onAddStarterExamples={handleAddStarterTestCases}
               onUpdateTestCase={handleUpdateTestCase}
               onRemoveTestCase={handleRemoveTestCase}
             />

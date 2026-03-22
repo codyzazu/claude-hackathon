@@ -10,6 +10,7 @@ import { CommandPalette } from "./components/CommandPalette";
 import { ModelSelector, MODELS } from "./components/ModelSelector";
 import { PromptHistory } from "./components/PromptHistory";
 import { usePromptHistory } from "./hooks/usePromptHistory";
+import { CriteriaTemplates } from "./components/CriteriaTemplates";
 
 const DEFAULT_MODEL_ID = "claude-sonnet-4-20250514";
 
@@ -50,6 +51,10 @@ export default function App() {
   }
   function handleRemoveCriterion(id: string) {
     setCriteria((prev) => prev.filter((c) => c.id !== id));
+  }
+
+  function handleLoadTemplate(newCriteria: Criterion[]) {
+    setCriteria(newCriteria);
   }
 
   async function handleRunEvaluation() {
@@ -176,7 +181,14 @@ export default function App() {
 
         {/* Row 2: Criteria */}
         <div className="flex flex-col gap-3">
-          <p className="text-xs tracking-[0.2em]" style={{ color: "#6b6b6b" }}>CRITERIA</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs tracking-[0.2em]" style={{ color: "#6b6b6b" }}>CRITERIA</p>
+            <CriteriaTemplates
+              onLoad={handleLoadTemplate}
+              onReset={() => setCriteria([])}
+              hasCriteria={criteria.length > 0}
+            />
+          </div>
           <CriteriaBuilder
             criteria={criteria}
             onAddCriterion={handleAddCriterion}

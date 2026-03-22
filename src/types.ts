@@ -28,3 +28,16 @@ export interface EvaluationResult {
 }
 
 export type EvaluationStatus = "idle" | "loading" | "complete" | "error";
+
+export interface Model {
+  id: string;
+  label: string;
+  costTier: string;
+  description: string;
+  recommended?: boolean;
+}
+
+export interface ModelEvaluationResult {
+  model: Model;
+  results: EvaluationResult[];
+}

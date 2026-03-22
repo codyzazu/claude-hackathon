@@ -1,20 +1,36 @@
 import { useState } from "react";
 import { nanoid } from "nanoid";
-import type { TestCase, Criterion, EvaluationResult, EvaluationStatus } from "./types";
+import type { TestCase, Criterion, ModelEvaluationResult, EvaluationStatus } from "./types";
 import { runEvaluation, autoImprovePrompt } from "./services/claude";
 import { PromptSetup } from "./components/PromptSetup";
 import { TestCaseList } from "./components/TestCaseList";
 import { CriteriaBuilder } from "./components/CriteriaBuilder";
 import { ResultsDashboard } from "./components/ResultsDashboard";
 import { CommandPalette } from "./components/CommandPalette";
+import { ModelSelector, MODELS } from "./components/ModelSelector";
+import { PromptHistory } from "./components/PromptHistory";
+import { usePromptHistory } from "./hooks/usePromptHistory";
+
+const DEFAULT_MODEL_ID = "claude-sonnet-4-20250514";
+
+function avgScore(comparisons: ModelEvaluationResult[]): number {
+  if (comparisons.length === 0) return 0;
+  const allScores = comparisons.flatMap((c) => c.results.map((r) => r.judgment.overallScore));
+  return Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length);
+}
 
 export default function App() {
   const [systemPrompt, setSystemPrompt] = useState("");
   const [testCases, setTestCases] = useState<TestCase[]>([]);
   const [criteria, setCriteria] = useState<Criterion[]>([]);
-  const [results, setResults] = useState<EvaluationResult[]>([]);
+  const [selectedModelIds, setSelectedModelIds] = useState<string[]>([DEFAULT_MODEL_ID]);
+  const [comparisons, setComparisons] = useState<ModelEvaluationResult[]>([]);
   const [status, setStatus] = useState<EvaluationStatus>("idle");
   const [improvedPrompt, setImprovedPrompt] = useState<string | null>(null);
+  const [improveModelId, setImproveModelId] = useState<string>(DEFAULT_MODEL_ID);
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  const { versions, addVersion, clear } = usePromptHistory();
 
   function handleAddTestCase() {
     setTestCases((prev) => [...prev, { id: nanoid(), input: "" }]);
@@ -41,8 +57,19 @@ export default function App() {
     setStatus("loading");
     setImprovedPrompt(null);
     try {
-      const evalResults = await runEvaluation(systemPrompt, testCases, criteria);
-      setResults(evalResults);
+      const selectedModels = MODELS.filter((m) => selectedModelIds.includes(m.id));
+      const allResults = await Promise.all(
+        selectedModels.map(async (model) => ({
+          model,
+          results: await runEvaluation(systemPrompt, testCases, criteria, model.id),
+        }))
+      );
+      setComparisons(allResults);
+      setImproveModelId(selectedModels[0].id);
+
+      // Save to history (v1 on first run, new version on subsequent runs)
+      addVersion(systemPrompt, avgScore(allResults));
+
       setStatus("complete");
     } catch (err) {
       console.error(err);
@@ -51,11 +78,17 @@ export default function App() {
   }
 
   async function handleAutoImprove() {
-    if (results.length === 0) return;
+    const chosen = comparisons.find((c) => c.model.id === improveModelId) ?? comparisons[0];
+    const chosenResults = chosen?.results;
+    if (!chosenResults?.length) return;
     setStatus("loading");
     try {
-      const improved = await autoImprovePrompt(systemPrompt, results);
+      const improved = await autoImprovePrompt(systemPrompt, chosenResults);
       setImprovedPrompt(improved);
+
+      // Save the improved prompt with the current score (score of what prompted the improve)
+      addVersion(improved, avgScore(comparisons));
+
       setStatus("complete");
     } catch (err) {
       console.error(err);
@@ -69,7 +102,7 @@ export default function App() {
     testCases.length > 0 &&
     criteria.length > 0;
 
-  const canImprove = status !== "loading" && results.length > 0;
+  const canImprove = status !== "loading" && comparisons.length > 0;
 
   function openCommandPalette() {
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true }));
@@ -86,8 +119,33 @@ export default function App() {
         canImprove={canImprove}
       />
 
+      <PromptHistory
+        versions={versions}
+        currentPrompt={systemPrompt}
+        onRestore={setSystemPrompt}
+        onClear={clear}
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+      />
+
       {/* Title bar */}
-      <div className="flex items-center justify-end px-6 pt-5 pb-4">
+      <div className="flex items-center justify-between px-6 pt-5 pb-4">
+        <button
+          onClick={() => setHistoryOpen(true)}
+          className="flex items-center gap-2 text-xs transition-opacity hover:opacity-70"
+          style={{ color: versions.length > 0 ? "#6b6b6b" : "#333" }}
+        >
+          <span>◎</span>
+          history
+          {versions.length > 0 && (
+            <span
+              className="px-1.5 py-0.5 rounded text-[10px]"
+              style={{ background: "rgba(0,255,65,0.1)", color: "#00ff41", border: "1px solid rgba(0,255,65,0.2)" }}
+            >
+              {versions.length}
+            </span>
+          )}
+        </button>
         <span className="text-xs tracking-[0.2em]" style={{ color: "#6b6b6b" }}>
           PROMPT-EVAL-STUDIO V1.0
         </span>
@@ -132,7 +190,7 @@ export default function App() {
           <p className="text-xs tracking-[0.2em]" style={{ color: "#6b6b6b" }}>EVALUATION RESULTS</p>
           <ResultsDashboard
             status={status}
-            results={results}
+            comparisons={comparisons}
             improvedPrompt={improvedPrompt}
             originalPrompt={systemPrompt}
           />
@@ -153,7 +211,29 @@ export default function App() {
           command palette
         </button>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
+          <ModelSelector selectedIds={selectedModelIds} onChange={setSelectedModelIds} />
+
+          {canImprove && comparisons.length > 1 && (
+            <div className="flex items-center gap-2 text-xs" style={{ color: "#6b6b6b" }}>
+              <span>improve using</span>
+              {comparisons.map((c) => (
+                <button
+                  key={c.model.id}
+                  onClick={() => setImproveModelId(c.model.id)}
+                  className="px-2 py-1 rounded transition-all"
+                  style={{
+                    border: `1px solid ${improveModelId === c.model.id ? "#00ff41" : "#2a2a2a"}`,
+                    color: improveModelId === c.model.id ? "#00ff41" : "#6b6b6b",
+                    background: improveModelId === c.model.id ? "rgba(0,255,65,0.08)" : "transparent",
+                  }}
+                >
+                  {c.model.label}
+                </button>
+              ))}
+            </div>
+          )}
+
           {status === "loading" && (
             <span className="text-xs animate-pulse" style={{ color: "#6b6b6b" }}>running...</span>
           )}
@@ -162,7 +242,7 @@ export default function App() {
             disabled={status === "loading" || (!canRun && !canImprove)}
             className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold tracking-widest transition-all disabled:opacity-20 disabled:cursor-not-allowed hover:opacity-80"
             style={{
-              background: "transparent",
+              background: "#0a0a0a",
               color: "#00ff41",
               border: "2px solid #00ff41",
             }}

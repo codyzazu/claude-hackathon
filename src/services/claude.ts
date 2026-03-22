@@ -1,7 +1,7 @@
 import type { TestCase, Criterion, EvaluationResult, JudgmentResult } from "../types";
 
 const API_URL = "https://api.anthropic.com/v1/messages";
-const MODEL = "claude-sonnet-4-20250514";
+const JUDGE_MODEL = "claude-sonnet-4-20250514";
 
 function getHeaders(): Record<string, string> {
   return {
@@ -12,12 +12,12 @@ function getHeaders(): Record<string, string> {
   };
 }
 
-async function callClaude(systemPrompt: string, userMessage: string): Promise<string> {
+async function callClaude(systemPrompt: string, userMessage: string, model: string): Promise<string> {
   const res = await fetch(API_URL, {
     method: "POST",
     headers: getHeaders(),
     body: JSON.stringify({
-      model: MODEL,
+      model,
       max_tokens: 1024,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
@@ -34,8 +34,8 @@ async function callClaude(systemPrompt: string, userMessage: string): Promise<st
 }
 
 // 1. Runner — execute user's system prompt against a single test case
-async function runTestCase(systemPrompt: string, testCase: TestCase): Promise<string> {
-  return callClaude(systemPrompt, testCase.input);
+async function runTestCase(systemPrompt: string, testCase: TestCase, model: string): Promise<string> {
+  return callClaude(systemPrompt, testCase.input, model);
 }
 
 // 2. Judge — score a response against criteria, returns structured JSON
@@ -74,7 +74,7 @@ ${criteriaList}
 
 Return the JSON scorecard now.`;
 
-  const raw = await callClaude(system, user);
+  const raw = await callClaude(system, user, JUDGE_MODEL);
 
   const jsonMatch = raw.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error("Judge returned no valid JSON");
@@ -109,18 +109,19 @@ ${failures}
 
 Write the improved system prompt now.`;
 
-  return callClaude(system, user);
+  return callClaude(system, user, JUDGE_MODEL);
 }
 
-// Main evaluation runner — runs all test cases in parallel
+// Main evaluation runner — runs all test cases in parallel for a given model
 export async function runEvaluation(
   systemPrompt: string,
   testCases: TestCase[],
-  criteria: Criterion[]
+  criteria: Criterion[],
+  model: string
 ): Promise<EvaluationResult[]> {
   return Promise.all(
     testCases.map(async (tc) => {
-      const response = await runTestCase(systemPrompt, tc);
+      const response = await runTestCase(systemPrompt, tc, model);
       const judgment = await judgeResponse(response, tc.input, criteria);
       return { testCase: tc.input, response, judgment };
     })

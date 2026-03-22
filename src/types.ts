@@ -3,6 +3,13 @@ export interface TestCase {
   input: string;
 }
 
+export interface ReferenceFile {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+}
+
 export interface Criterion {
   id: string;
   text: string;
